@@ -3,6 +3,7 @@ var gutil = require('gulp-util');
 var through = require('through2');
 var iconv = require('iconv-lite');
 
+var BOM = new Buffer('\uFEFF');
 // Constants
 var UTF8 = 'utf8';
 
@@ -16,7 +17,7 @@ module.exports = function (options) {
 	options.from = options.from || UTF8;
 	options.to = options.to || UTF8;
 	options.iconv = options.iconv ? options.iconv :
-		{decode: {}, encode: {}};
+		{ decode: {}, encode: {} };
 
 	return through.obj(function (file, enc, cb) {
 
@@ -24,6 +25,21 @@ module.exports = function (options) {
 			this.push(file);
 			cb();
 			return;
+		}
+		if (options && options.ignore && file.path) {
+			var ignore = options.ignore;
+			var fpath = file.path;
+			if (!Array.isArray(ignore)) {
+				ignore = [ignore];
+			}
+			for (var index = 0; index < ignore.length; index++) {
+				var ignoreOne = ignore[index];
+				if (ignoreOne.test(fpath)) {
+					this.push(file);
+					cb();
+					return;
+				}
+			}
 		}
 
 		if (file.isStream()) {
@@ -41,6 +57,9 @@ module.exports = function (options) {
 			try {
 				var content = iconv.decode(file.contents, options.from, options.iconv.decode);
 				file.contents = iconv.encode(content, options.to, options.iconv.encode);
+				if (options && options.addBOM === true) {
+					file.contents = Buffer.concat([BOM, file.contents])
+				}
 				this.push(file);
 			} catch (err) {
 				this.emit('error', new gutil.PluginError('gulp-convert-encoding', err));
