@@ -61,7 +61,7 @@ module.exports = function (options) {
 					var content = iconv.decode(file.contents, options.from, options.iconv.decode);
 					file.contents = iconv.encode(content, options.to, options.iconv.encode);
 				}
-				if (options.addBOM === true) {
+				if (options.to.test(/utf8/i) && options.addBOM === true) {
 					file.contents = Buffer.concat([BOM, file.contents])
 				}
 				this.push(file);
