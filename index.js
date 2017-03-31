@@ -26,7 +26,9 @@ module.exports = function (options) {
 			cb();
 			return;
 		}
-		if (options && options.ignore && file.path) {
+
+		var shouldIgnore = false;
+		if (options.ignore && file.path) {
 			var ignore = options.ignore;
 			var fpath = file.path;
 			if (!Array.isArray(ignore)) {
@@ -35,18 +37,18 @@ module.exports = function (options) {
 			for (var index = 0; index < ignore.length; index++) {
 				var ignoreOne = ignore[index];
 				if (ignoreOne.test(fpath)) {
-					this.push(file);
-					cb();
-					return;
+					shouldIgnore = true;
+					break;
 				}
 			}
 		}
 
 		if (file.isStream()) {
 			try {
-				file.contents = file.contents
-					.pipe(iconv.decodeStream(options.from, options.iconv.decode))
-					.pipe(iconv.encodeStream(options.to, options.iconv.encode));
+				if(!shouldIgnore)
+					file.contents = file.contents
+						.pipe(iconv.decodeStream(options.from, options.iconv.decode))
+						.pipe(iconv.encodeStream(options.to, options.iconv.encode));
 				this.push(file);
 			} catch (err) {
 				this.emit('error', new gutil.PluginError('gulp-convert-encoding', err));
@@ -55,9 +57,11 @@ module.exports = function (options) {
 
 		if (file.isBuffer()) {
 			try {
-				var content = iconv.decode(file.contents, options.from, options.iconv.decode);
-				file.contents = iconv.encode(content, options.to, options.iconv.encode);
-				if (options && options.addBOM === true) {
+				if(!shouldIgnore) {
+					var content = iconv.decode(file.contents, options.from, options.iconv.decode);
+					file.contents = iconv.encode(content, options.to, options.iconv.encode);
+				}
+				if (options.addBOM === true) {
 					file.contents = Buffer.concat([BOM, file.contents])
 				}
 				this.push(file);
